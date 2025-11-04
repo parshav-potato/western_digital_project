@@ -187,7 +187,7 @@ class DocumentationScraper:
             Dictionary with page data, or None if scraping failed
         """
         try:
-            print(f"📄 Scraping: {url}")
+            print(f"Scraping: {url}")
             
             response = requests.get(url, headers=self.headers, timeout=10)
             response.raise_for_status()
@@ -205,7 +205,7 @@ class DocumentationScraper:
             return None
             
         except Exception as e:
-            print(f"⚠️  Error scraping {url}: {str(e)}")
+            print(f"Error scraping {url}: {str(e)}")
             return None
     
     def crawl(self, start_url: str = None, depth: int = 0) -> List[Dict]:
@@ -257,7 +257,7 @@ class DocumentationScraper:
         Returns:
             List of all scraped pages with metadata
         """
-        print(f"\n🚀 Starting documentation scraper...")
+        print(f"\nStarting documentation scraper...")
         print(f"   Base URL: {self.base_url}")
         print(f"   Max Depth: {self.max_depth}")
         print(f"   Max Pages: {self.max_pages}")
@@ -265,7 +265,7 @@ class DocumentationScraper:
         
         pages = self.crawl()
         
-        print(f"\n✓ Scraping complete!")
+        print(f"\nScraping complete!")
         print(f"   Pages scraped: {len(pages)}")
         print(f"   Total content: {sum(p['length'] for p in pages):,} characters\n")
         

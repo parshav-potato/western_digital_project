@@ -187,7 +187,7 @@ class FAISSVectorStore:
             directory: Directory containing the vector store
             index_name: Name of the index file
         """
-        print(f"\n📂 Loading vector store from {directory}...")
+        print(f"\nLoading vector store from {directory}...")
         
         index_path = os.path.join(directory, index_name)
         

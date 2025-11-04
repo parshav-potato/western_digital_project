@@ -145,7 +145,7 @@ Provide a concise but complete summary. Be careful with numbers and don't make t
         Returns:
             Tuple of (documents list, raw texts list)
         """
-        print("\n📝 Processing text and tables in batches...")
+        print("\nProcessing text and tables in batches...")
         documents = []
         raw_texts = []
         
@@ -158,7 +158,7 @@ Provide a concise but complete summary. Be careful with numbers and don't make t
             batch_end = min(batch_start + self.batch_size, total)
             batch = elements_to_process[batch_start:batch_end]
             
-            print(f"  📦 Batch {batch_start//self.batch_size + 1}: Processing elements {batch_start+1}-{batch_end} of {total}")
+            print(f"  Batch {batch_start//self.batch_size + 1}: Processing elements {batch_start+1}-{batch_end} of {total}")
             
             for i, element in enumerate(batch):
                 global_idx = batch_start + i

@@ -2,8 +2,16 @@
 Configuration module for managing API keys and LLM provider selection.
 """
 import os
+import warnings
 from typing import Optional
 from dotenv import load_dotenv
+
+# Suppress warnings and configure environment
+warnings.filterwarnings('ignore', category=DeprecationWarning)
+warnings.filterwarnings('ignore', category=UserWarning)
+warnings.filterwarnings('ignore', category=FutureWarning)
+os.environ['TOKENIZERS_PARALLELISM'] = 'false'
+os.environ['TRANSFORMERS_VERBOSITY'] = 'error'
 
 # Load environment variables
 load_dotenv()
@@ -53,8 +61,10 @@ class Config:
     def get_embedding_model(self):
         """Get the appropriate embedding model based on provider."""
         if self.use_local_embeddings:
-            from langchain_community.embeddings import HuggingFaceEmbeddings
-            print("🔧 Using local embeddings (sentence-transformers/all-MiniLM-L6-v2)")
+            try:
+                from langchain_huggingface import HuggingFaceEmbeddings
+            except ImportError:
+                from langchain_community.embeddings import HuggingFaceEmbeddings
             return HuggingFaceEmbeddings(
                 model_name="sentence-transformers/all-MiniLM-L6-v2",
                 model_kwargs={'device': 'cpu'},
