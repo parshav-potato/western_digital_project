@@ -75,13 +75,22 @@ class DocumentationScraper:
         
         parsed = urlparse(url)
         
-        # Must be same domain and under base path
+        # Must be same domain
         if not url.startswith(self.base_domain):
+            return False
+        
+        # Must be under base path (e.g., if base_url is /reference/, only crawl /reference/* pages)
+        if self.base_path and not parsed.path.startswith(self.base_path):
             return False
         
         # Skip common non-documentation URLs
         skip_patterns = ['#', 'javascript:', 'mailto:', '.pdf', '.zip', '.jpg', '.png', '.gif', '.svg']
         if any(pattern in url.lower() for pattern in skip_patterns):
+            return False
+        
+        # Skip language versions (de/, es/, fr/, etc.)
+        path_parts = parsed.path.strip('/').split('/')
+        if path_parts and len(path_parts[0]) == 2 and path_parts[0] in ['de', 'es', 'fa', 'fr', 'ja', 'ko', 'pt', 'ru', 'tr', 'uk', 'zh']:
             return False
         
         return True

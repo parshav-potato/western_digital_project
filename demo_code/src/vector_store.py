@@ -12,15 +12,16 @@ from langchain_core.documents import Document
 class FAISSVectorStore:
     """Manage FAISS vector store for document embeddings."""
     
-    def __init__(self, config):
+    def __init__(self, config, use_simple_embeddings=False):
         """
         Initialize FAISS vector store.
         
         Args:
             config: Config instance with embedding settings
+            use_simple_embeddings: If True, use simpler embedding model (for baseline)
         """
         self.config = config
-        self.embeddings = config.get_embedding_model()
+        self.embeddings = config.get_embedding_model(use_simple=use_simple_embeddings)
         self.vector_store = None
         
     def create_from_texts(

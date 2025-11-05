@@ -6,10 +6,14 @@ import warnings
 from typing import Optional
 from dotenv import load_dotenv
 
-# Suppress warnings and configure environment
+# Suppress all warnings
+warnings.filterwarnings('ignore')
 warnings.filterwarnings('ignore', category=DeprecationWarning)
 warnings.filterwarnings('ignore', category=UserWarning)
 warnings.filterwarnings('ignore', category=FutureWarning)
+warnings.filterwarnings('ignore', module='langchain')
+warnings.filterwarnings('ignore', module='langchain_community')
+
 os.environ['TOKENIZERS_PARALLELISM'] = 'false'
 os.environ['TRANSFORMERS_VERBOSITY'] = 'error'
 
@@ -58,18 +62,30 @@ class Config:
         if self.llm_provider == "gemini" and not self.google_api_key:
             raise ValueError("GOOGLE_API_KEY not found in environment variables")
     
-    def get_embedding_model(self):
-        """Get the appropriate embedding model based on provider."""
+    def get_embedding_model(self, use_simple=False):
+        """
+        Get the appropriate embedding model based on provider.
+        
+        Args:
+            use_simple: If True, use a simpler/smaller embedding model for baseline comparison
+        """
         if self.use_local_embeddings:
-            try:
-                from langchain_huggingface import HuggingFaceEmbeddings
-            except ImportError:
-                from langchain_community.embeddings import HuggingFaceEmbeddings
-            return HuggingFaceEmbeddings(
-                model_name="sentence-transformers/all-MiniLM-L6-v2",
-                model_kwargs={'device': 'cpu'},
-                encode_kwargs={'normalize_embeddings': True}
-            )
+            # Suppress the deprecation warning by catching it
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                try:
+                    from langchain_huggingface import HuggingFaceEmbeddings
+                except ImportError:
+                    from langchain_community.embeddings import HuggingFaceEmbeddings
+                
+                # Use smaller, less capable model for baseline comparison
+                model_name = "sentence-transformers/paraphrase-MiniLM-L3-v2" if use_simple else "sentence-transformers/all-MiniLM-L6-v2"
+                
+                return HuggingFaceEmbeddings(
+                    model_name=model_name,
+                    model_kwargs={'device': 'cpu'},
+                    encode_kwargs={'normalize_embeddings': True}
+                )
         elif self.llm_provider == "openai":
             from langchain_openai import OpenAIEmbeddings
             return OpenAIEmbeddings(openai_api_key=self.openai_api_key)

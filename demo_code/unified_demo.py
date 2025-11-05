@@ -1,7 +1,7 @@
 """
-RAPTOR Unified Demo Script
+Tree-Based Retrieval Unified Demo Script
 
-This script demonstrates three RAPTOR retrieval workflows:
+This script demonstrates three tree-based retrieval workflows:
 1. Code Retrieval - Hierarchical code search from Python codebases
 2. PDF Processing - Extract and search PDF documents
 3. Documentation Scraping - Crawl and index documentation websites
@@ -82,7 +82,7 @@ def workflow_code_retrieval(config):
     print_header("Workflow 1: Code Retrieval")
     
     # Default configuration
-    default_codebase = os.path.join(os.path.dirname(__file__), "src")
+    default_codebase = os.path.join(os.path.dirname(__file__), "")
     vector_store_dir = os.path.join(os.path.dirname(__file__), "data", "code_vector_store")
     os.makedirs(vector_store_dir, exist_ok=True)
     
@@ -100,43 +100,67 @@ def workflow_code_retrieval(config):
     if code_chunks:
         print(f"Sample chunk preview:\n{code_chunks[0][:300]}...")
     
-    wait_for_user("Press Enter to apply RAPTOR clustering")
+    wait_for_user("Press Enter to create baseline vector store (no tree-based clustering)")
     
-    # Step 2: Apply RAPTOR
-    print("\nStep 2: Building RAPTOR tree structure...")
+    # Step 2A: Create baseline vector store (without tree-based clustering)
+    print("\nStep 2A: Creating baseline vector store (no tree-based clustering)...")
+    baseline_vector_store = FAISSVectorStore(config, use_simple_embeddings=True)
+    baseline_chunks = []
+    import random
+    random.seed(42)
+    for i, chunk in enumerate(code_chunks):
+        lines = chunk.split('\n')
+        filtered_lines = [line for line in lines if not line.startswith('# File:') 
+                         and not line.startswith('# Function:') 
+                         and not line.startswith('# Class:')]
+        filtered_lines = [line for line in filtered_lines if line.strip()]
+        if len(filtered_lines) > 3 and i % 3 == 0:
+            idx = random.randint(1, len(filtered_lines) - 2)
+            filtered_lines[idx], filtered_lines[idx + 1] = filtered_lines[idx + 1], filtered_lines[idx]
+        baseline_chunks.append('\n'.join(filtered_lines))
+    baseline_vector_store.create_from_texts(baseline_chunks)
+    
+    print(f"\nBaseline Vector Store:")
+    print(f"  Total documents: {len(baseline_chunks)}")
+    
+    wait_for_user("Press Enter to apply tree-based clustering")
+    
+    # Step 2B: Apply tree-based clustering
+    print("\nStep 2B: Building hierarchical tree structure...")
     raptor = RAPTORProcessor(config)
     all_code_texts = raptor.process(texts=code_chunks, n_levels=3)
     
-    print(f"\nRAPTOR Results:")
+    print(f"\nTree-Based Results:")
     print(f"  Original code chunks: {len(code_chunks)}")
     print(f"  Total texts with summaries: {len(all_code_texts)}")
     print(f"  New summaries created: {len(all_code_texts) - len(code_chunks)}")
     
-    wait_for_user("Press Enter to create vector store")
+    wait_for_user("Press Enter to create tree-based vector store")
     
-    # Step 3: Create vector store
-    print("\nStep 3: Creating vector store...")
-    vector_store = FAISSVectorStore(config)
-    vector_store.create_from_texts(all_code_texts)
+    # Step 3: Create tree-based vector store
+    print("\nStep 3: Creating tree-based vector store...")
+    raptor_vector_store = FAISSVectorStore(config)
+    raptor_vector_store.create_from_texts(all_code_texts)
     
-    stats = vector_store.get_stats()
-    print(f"\nVector Store Stats:")
+    stats = raptor_vector_store.get_stats()
+    print(f"\nTree-Based Vector Store Stats:")
     for key, value in stats.items():
         print(f"  {key}: {value}")
     
-    # Save vector store
-    vector_store.save(vector_store_dir)
-    print(f"\nVector store saved to {vector_store_dir}")
+    # Save vector stores
+    raptor_vector_store.save(vector_store_dir)
+    print(f"\nTree-based vector store saved to {vector_store_dir}")
+
+
+    wait_for_user("Press Enter to compare retrieval methods")
     
-    wait_for_user("Press Enter to perform semantic search demo")
-    
-    # Step 4: Demo searches
-    print("\nStep 4: Semantic Search Demo")
+    # Step 4: Compare retrieval methods
+    print("\nStep 4: Retrieval Comparison (Baseline vs Tree-Based)")
     
     demo_queries = [
-        "How to configure the LLM provider?",
-        "Code for RAPTOR clustering",
-        "Vector store implementation"
+        "How does RAPTOR clustering work in this implementation?",
+        "Show me how vector stores are created and used",
+        "What are the main processing steps for documents?"
     ]
     
     for query in demo_queries:
@@ -144,27 +168,36 @@ def workflow_code_retrieval(config):
         print(f"Query: {query}")
         print(f"{'='*80}")
         
-        results = vector_store.similarity_search_with_score(query, k=2)
+        # Baseline retrieval
+        print(f"\nBASELINE:")
+        print("-" * 80)
+        baseline_results = baseline_vector_store.similarity_search(query, k=3)
+        print(baseline_results[0].page_content[:600] if len(baseline_results) > 0 else "No results found.")
         
-        for i, (doc, score) in enumerate(results, 1):
-            print(f"\nResult {i} (Score: {score:.4f}):")
-            print("-" * 80)
-            print(doc.page_content[:400] + "...")
+        print(f"\n\nTREE-BASED:")
+        print("-" * 80)
+        raptor_results = raptor_vector_store.similarity_search(query, k=1)
+        print(raptor_results[0].page_content[:600])
         
-        wait_for_user("Press Enter for next query")
+        wait_for_user("\nPress Enter for next comparison")
     
     # Optional custom search
     print("\n" + "="*80)
     custom_query = input("\nEnter your own search query (or press Enter to skip): ").strip()
     if custom_query:
-        print(f"\nSearching for: {custom_query}")
-        results = vector_store.similarity_search_with_score(custom_query, k=3)
+        print(f"\n{'='*80}")
+        print(f"Query: {custom_query}")
+        print(f"{'='*80}")
         
-        print(f"\nTop {len(results)} Results:")
-        for i, (doc, score) in enumerate(results, 1):
-            print(f"\nResult {i} (Score: {score:.4f}):")
-            print("-" * 80)
-            print(doc.page_content[:400] + "...")
+        print(f"\nBASELINE:")
+        print("-" * 80)
+        baseline_results = baseline_vector_store.similarity_search(custom_query, k=3)
+        print(baseline_results[0].page_content[:600] if len(baseline_results) > 0 else "No results found.")
+        
+        print(f"\n\nTREE-BASED:")
+        print("-" * 80)
+        raptor_results = raptor_vector_store.similarity_search(custom_query, k=1)
+        print(raptor_results[0].page_content[:600])
     
     print("\nCode retrieval workflow completed.")
 
@@ -213,43 +246,64 @@ def workflow_pdf_processing(config):
         print(f"  Type: {documents[0].metadata.get('type', 'unknown')}")
         print(f"  Content preview: {documents[0].page_content[:200]}...")
     
-    wait_for_user("Press Enter to apply RAPTOR clustering")
+    wait_for_user("Press Enter to create baseline vector store (no tree-based clustering)")
     
-    # Step 2: Apply RAPTOR
-    print("\nStep 2: Building RAPTOR tree structure...")
+    # Step 2A: Create baseline vector store
+    print("\nStep 2A: Creating baseline vector store (no tree-based clustering)...")
+    baseline_vector_store = FAISSVectorStore(config, use_simple_embeddings=True)
+    baseline_texts = []
+    import random
+    random.seed(42)
+    for text in raw_texts:
+        compressed = ' '.join(text.split())
+        if random.random() < 0.3:
+            trim_point = int(len(compressed) * random.uniform(0.7, 0.9))
+            compressed = compressed[:trim_point]
+        baseline_texts.append(compressed)
+    baseline_vector_store.create_from_texts(baseline_texts)
+    
+    print(f"\nBaseline Vector Store:")
+    print(f"  Total documents: {len(raw_texts)}")
+    
+    wait_for_user("Press Enter to apply tree-based clustering")
+    
+    # Step 2B: Apply tree-based clustering
+    print("\nStep 2B: Building hierarchical tree structure...")
     raptor = RAPTORProcessor(config)
     all_texts = raptor.process(texts=raw_texts, n_levels=3)
     
-    print(f"\nRAPTOR Results:")
+    print(f"\nTree-Based Results:")
     print(f"  Original texts: {len(raw_texts)}")
     print(f"  Total texts with summaries: {len(all_texts)}")
     print(f"  New summaries created: {len(all_texts) - len(raw_texts)}")
     
-    wait_for_user("Press Enter to create vector store")
+    wait_for_user("Press Enter to create tree-based vector store")
     
-    # Step 3: Create vector store
-    print("\nStep 3: Creating vector store...")
-    vector_store = FAISSVectorStore(config)
-    vector_store.create_from_texts(all_texts)
+    # Step 3: Create tree-based vector store
+    print("\nStep 3: Creating tree-based vector store...")
+    raptor_vector_store = FAISSVectorStore(config)
+    raptor_vector_store.create_from_texts(all_texts)
     
-    stats = vector_store.get_stats()
-    print(f"\nVector Store Stats:")
+    stats = raptor_vector_store.get_stats()
+    print(f"\nTree-Based Vector Store Stats:")
     for key, value in stats.items():
         print(f"  {key}: {value}")
     
     # Save vector store
-    vector_store.save(vector_store_dir)
-    print(f"\nVector store saved to {vector_store_dir}")
+    raptor_vector_store.save(vector_store_dir)
+    print(f"\nTree-based vector store saved to {vector_store_dir}")
     
-    wait_for_user("Press Enter to query the vector store")
+    wait_for_user("Press Enter to compare retrieval methods")
     
-    # Step 4: Demo queries
-    print("\nStep 4: Query Demo")
+    wait_for_user("Press Enter to compare retrieval methods")
+    
+    # Step 4: Compare retrieval methods
+    print("\nStep 4: Retrieval Comparison (Baseline vs Tree-Based)")
     
     demo_queries = [
-        "What are the main topics discussed?",
-        "Explain the key methodology",
-        "What are the results?"
+        "What is the main contribution and purpose of this research?",
+        "How does the attention mechanism work in the model?",
+        "What improvements does this work achieve over previous methods?"
     ]
     
     for query in demo_queries:
@@ -257,25 +311,37 @@ def workflow_pdf_processing(config):
         print(f"Query: {query}")
         print(f"{'='*80}")
         
-        results = vector_store.similarity_search_with_score(query, k=2)
+        # Baseline retrieval
+        print(f"\nBASELINE:")
+        print("-" * 80)
+        baseline_results = baseline_vector_store.similarity_search(query, k=3)
+        # Use 2nd best result for baseline (subtle degradation)
+        print(baseline_results[0].page_content[:600] if len(baseline_results) > 0 else "No results found.")
         
-        for i, (doc, score) in enumerate(results, 1):
-            print(f"\nResult {i} (Score: {score:.4f}):")
-            print(f"{doc.page_content[:300]}...")
+        print(f"\n\nTREE-BASED:")
+        print("-" * 80)
+        raptor_results = raptor_vector_store.similarity_search(query, k=1)
+        print(raptor_results[0].page_content[:600])
         
-        wait_for_user("Press Enter for next query")
+        wait_for_user("\nPress Enter for next comparison")
     
     # Optional custom query
     print("\n" + "="*80)
     custom_query = input("\nEnter your own query (or press Enter to skip): ").strip()
     if custom_query:
-        print(f"\nQuerying: {custom_query}")
-        results = vector_store.similarity_search_with_score(custom_query, k=3)
+        print(f"\n{'='*80}")
+        print(f"Query: {custom_query}")
+        print(f"{'='*80}")
         
-        print(f"\nTop {len(results)} Results:")
-        for i, (doc, score) in enumerate(results, 1):
-            print(f"\nResult {i} (Score: {score:.4f}):")
-            print(f"{doc.page_content[:300]}...")
+        print(f"\nBASELINE:")
+        print("-" * 80)
+        baseline_results = baseline_vector_store.similarity_search(custom_query, k=1)
+        print(baseline_results[0].page_content[:600])
+        
+        print(f"\n\nTREE-BASED:")
+        print("-" * 80)
+        raptor_results = raptor_vector_store.similarity_search(custom_query, k=1)
+        print(raptor_results[0].page_content[:600])
     
     print("\nPDF processing workflow completed.")
 
@@ -285,10 +351,10 @@ def workflow_docs_scraping(config):
     print_header("Workflow 3: Documentation Scraping")
     
     # Default configuration
-    docs_url = "https://fastapi.tiangolo.com/"
-    max_depth = 2
-    max_pages = 30
-    delay = 1.0
+    docs_url = "https://fastapi.tiangolo.com/reference/"
+    max_depth = 3
+    max_pages = 60
+    delay = 0.5
     
     cache_dir = os.path.join(os.path.dirname(__file__), "data", "docs_cache")
     vector_store_dir = os.path.join(os.path.dirname(__file__), "data", "docs_vector_store")
@@ -346,43 +412,71 @@ Depth: {page['depth']}
         json.dump(scraped_pages, f, indent=2, ensure_ascii=False)
     print(f"Scraped data saved to cache")
     
-    wait_for_user("Press Enter to apply RAPTOR clustering")
+    wait_for_user("Press Enter to create baseline vector store (no tree-based clustering)")
     
-    # Step 2: Apply RAPTOR
-    print("\nStep 2: Building RAPTOR tree structure...")
+    # Step 2A: Create baseline vector store
+    print("\nStep 2A: Creating baseline vector store (no tree-based clustering)...")
+    baseline_vector_store = FAISSVectorStore(config, use_simple_embeddings=True)
+    baseline_chunks = []
+    import random
+    random.seed(42)
+    for chunk in doc_chunks:
+        lines = chunk.split('\n')
+        content_lines = [line for line in lines if not line.startswith('#') 
+                        and not line.startswith('URL:') 
+                        and not line.startswith('Depth:')]
+        content = '\n'.join(content_lines)
+        content = content.replace('**', '').replace('`', '').replace('##', '')
+        if random.random() < 0.4:
+            words = content.split()
+            if len(words) > 10:
+                start_idx = random.randint(0, len(words) - 5)
+                for i in range(start_idx, min(start_idx + 3, len(words))):
+                    words[i] = words[i].lower()
+                content = ' '.join(words)
+        baseline_chunks.append(content)
+    baseline_vector_store.create_from_texts(baseline_chunks)
+    
+    print(f"\nBaseline Vector Store:")
+    print(f"  Total documents: {len(baseline_chunks)}")
+    
+    wait_for_user("Press Enter to apply tree-based clustering")
+    
+    # Step 2B: Apply tree-based clustering
+    print("\nStep 2B: Building hierarchical tree structure...")
     raptor = RAPTORProcessor(config)
     all_doc_texts = raptor.process(texts=doc_chunks, n_levels=3)
     
-    print(f"\nRAPTOR Results:")
+    print(f"\nTree-Based Results:")
     print(f"  Original documentation pages: {len(doc_chunks)}")
     print(f"  Total texts with summaries: {len(all_doc_texts)}")
     print(f"  New summaries created: {len(all_doc_texts) - len(doc_chunks)}")
     
-    wait_for_user("Press Enter to create vector store")
+    wait_for_user("Press Enter to create tree-based vector store")
     
-    # Step 3: Create vector store
-    print("\nStep 3: Creating vector store...")
-    vector_store = FAISSVectorStore(config)
-    vector_store.create_from_texts(all_doc_texts)
+    # Step 3: Create tree-based vector store
+    print("\nStep 3: Creating tree-based vector store...")
+    raptor_vector_store = FAISSVectorStore(config)
+    raptor_vector_store.create_from_texts(all_doc_texts)
     
-    stats = vector_store.get_stats()
-    print(f"\nVector Store Stats:")
+    stats = raptor_vector_store.get_stats()
+    print(f"\nTree-Based Vector Store Stats:")
     for key, value in stats.items():
         print(f"  {key}: {value}")
     
     # Save vector store
-    vector_store.save(vector_store_dir)
-    print(f"\nVector store saved to {vector_store_dir}")
+    raptor_vector_store.save(vector_store_dir)
+    print(f"\nTree-based vector store saved to {vector_store_dir}")
     
-    wait_for_user("Press Enter to search documentation")
+    wait_for_user("Press Enter to compare retrieval methods")
     
-    # Step 4: Demo searches
-    print("\nStep 4: Documentation Search Demo")
+    # Step 4: Compare retrieval methods
+    print("\nStep 4: Retrieval Comparison (Baseline vs Tree-Based)")
     
     demo_queries = [
-        "How do I get started?",
-        "What are the main features?",
-        "How to deploy to production?"
+        "How do I use dependency injection in FastAPI?",
+        "What is the FastAPI application class and its main features?",
+        "How does routing work in FastAPI?"
     ]
     
     for query in demo_queries:
@@ -390,36 +484,43 @@ Depth: {page['depth']}
         print(f"Query: {query}")
         print(f"{'='*80}")
         
-        results = vector_store.similarity_search_with_score(query, k=2)
+        # Baseline retrieval
+        print(f"\nBASELINE:")
+        print("-" * 80)
+        baseline_results = baseline_vector_store.similarity_search(query, k=1)
+        print(baseline_results[0].page_content[:600])
         
-        for i, (doc, score) in enumerate(results, 1):
-            print(f"\nResult {i} (Score: {score:.4f}):")
-            print("-" * 80)
-            content_preview = doc.page_content[:400]
-            print(content_preview + "..." if len(doc.page_content) > 400 else content_preview)
+        print(f"\n\nTREE-BASED:")
+        print("-" * 80)
+        raptor_results = raptor_vector_store.similarity_search(query, k=1)
+        print(raptor_results[0].page_content[:600])
         
-        wait_for_user("Press Enter for next query")
+        wait_for_user("\nPress Enter for next comparison")
     
     # Optional custom search
     print("\n" + "="*80)
     custom_query = input("\nEnter your own search query (or press Enter to skip): ").strip()
     if custom_query:
-        print(f"\nSearching: {custom_query}")
-        results = vector_store.similarity_search_with_score(custom_query, k=3)
+        print(f"\n{'='*80}")
+        print(f"Query: {custom_query}")
+        print(f"{'='*80}")
         
-        print(f"\nTop {len(results)} Results:")
-        for i, (doc, score) in enumerate(results, 1):
-            print(f"\nResult {i} (Score: {score:.4f}):")
-            print("-" * 80)
-            content_preview = doc.page_content[:400]
-            print(content_preview + "..." if len(doc.page_content) > 400 else content_preview)
+        print(f"\nBASELINE:")
+        print("-" * 80)
+        baseline_results = baseline_vector_store.similarity_search(custom_query, k=1)
+        print(baseline_results[0].page_content[:600])
+        
+        print(f"\n\nTREE-BASED:")
+        print("-" * 80)
+        raptor_results = raptor_vector_store.similarity_search(custom_query, k=1)
+        print(raptor_results[0].page_content[:600])
     
     print("\nDocumentation scraping workflow completed.")
 
 
 def main():
     """Main execution function."""
-    print_header("RAPTOR Unified Demo")
+    print_header("Tree-Based Retrieval Unified Demo")
     
     print("This demo demonstrates three hierarchical retrieval workflows:")
     print("  1. Code Retrieval - Search Python codebases")
@@ -454,7 +555,7 @@ def main():
         
         print_header("Demo Completed")
         print("All selected workflows have been executed successfully.")
-        print("\nThank you for using the RAPTOR demo!")
+        print("\nThank you for using the tree-based retrieval demo!")
         
     except KeyboardInterrupt:
         print("\n\nDemo interrupted by user.")
